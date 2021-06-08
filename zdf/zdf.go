@@ -1,25 +1,21 @@
 package zdf
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 )
 
-type HandlerFunc func(w http.ResponseWriter, req *http.Request)
+type HandlerFunc func(c *Context)
 
 type Engine struct {
-	router map[string]HandlerFunc
+	router *router
 }
 
 func New() *Engine {
-	return &Engine{router: map[string]HandlerFunc{}}
+	return &Engine{router: newRouter()}
 }
 
 func (engine *Engine) addRoute(method string, path string, handler HandlerFunc) {
-	key := fmt.Sprintf("%s-%s", method, path)
-	log.Printf("addRoute: %s", key)
-	engine.router[key] = handler
+	engine.router.addRoute(method, path, handler)
 }
 
 func (engine *Engine) Get(path string, handler HandlerFunc) {
@@ -31,14 +27,8 @@ func (engine *Engine) Post(path string, handler HandlerFunc) {
 }
 
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	path := req.URL.Path
-	method := req.Method
-	key := fmt.Sprintf("%s-%s", method, path)
-	if handler, ok := engine.router[key]; ok {
-		handler(w, req)
-	} else {
-		fmt.Fprintf(w, "404 not found: %s\n", key)
-	}
+	c := newContext(w, req)
+	engine.router.handle(c)
 }
 
 func (engine *Engine) Run(addr string) error {
